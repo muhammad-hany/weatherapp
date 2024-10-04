@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.gms.location.LocationServices
 import com.mohammed.weatherapp.databinding.FragmentCurrentWeatherBinding
 import com.mohammed.weatherapp.models.CurrentWeather
+import com.mohammed.weatherapp.models.DataState
 import com.mohammed.weatherapp.models.Location
 import com.mohammed.weatherapp.view.ForecastAdapter
 import com.mohammed.weatherapp.view.WeatherViewModel
@@ -74,12 +75,28 @@ class WeatherFragment : Fragment() {
     private fun setupCollectors(forecastAdapter: ForecastAdapter) {
         lifecycleScope.launch {
             viewModel.weatherSate.collectLatest { forecastResponse ->
-                if (forecastResponse?.currentWeather != null && forecastResponse.location != null) {
-                    updateCurrentWeather(forecastResponse.currentWeather, forecastResponse.location)
-                    forecastResponse.forecast?.forecastDays?.let {
-                        forecastAdapter.submitList(it)
+                when(forecastResponse) {
+                    is DataState.Success -> {
+                        binding.progressBar.visibility = View.GONE
+                        val data = forecastResponse.data
+                        if (data.currentWeather != null && data.location != null) {
+                            updateCurrentWeather(data.currentWeather, data.location)
+                            data.forecast?.forecastDays?.let {
+                                forecastAdapter.submitList(it)
+                            }
+                        }
+                    }
+
+                    is DataState.Error -> {
+                        binding.progressBar.visibility = View.GONE
+                        Toast.makeText(
+                            requireContext(),
+                            forecastResponse.message,
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
+
             }
         }
 
@@ -98,7 +115,6 @@ class WeatherFragment : Fragment() {
     }
 
     private fun updateCurrentWeather(currentWeather: CurrentWeather, location: Location) {
-        binding.progressBar.visibility = View.GONE
         binding.wind.text = "wind speed ${currentWeather.windKph} km/h"
         binding.region.text = location.region
         binding.temp.text = "${currentWeather.tempC.toString()}°C"
@@ -114,6 +130,7 @@ class WeatherFragment : Fragment() {
             if (location != null) {
                 val latitude = location.latitude
                 val longitude = location.longitude
+                binding.progressBar.visibility = View.VISIBLE
                 viewModel.getWeather("$latitude,$longitude", true)
             }
         }

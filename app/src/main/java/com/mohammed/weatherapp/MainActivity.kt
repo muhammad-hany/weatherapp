@@ -1,16 +1,16 @@
 package com.mohammed.weatherapp
 
 import android.os.Bundle
-import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.ui.AppBarConfiguration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.mohammed.weatherapp.databinding.ActivityMainBinding
+import com.mohammed.weatherapp.models.DataState
 import com.mohammed.weatherapp.models.WeatherSearchResponse
 import com.mohammed.weatherapp.view.ActivityViewModel
 import com.mohammed.weatherapp.view.SearchResultAdapter
@@ -57,13 +57,22 @@ class MainActivity : AppCompatActivity() {
     private fun setupCollectors(searchResultAdapter: SearchResultAdapter) {
         lifecycleScope.launch {
             viewModel.weatherSearchState.collectLatest { weatherResponse ->
-                binding.searchProgressbar.visibility = View.INVISIBLE
-                Log.i("Weather", "submiting the list: $weatherResponse")
-                if (binding.searchView.editText.text.isNullOrEmpty() || binding.searchView.editText.text.length < 3) {
-                    searchResultAdapter.submitList(null)
-                } else {
-                    searchResultAdapter.submitList(weatherResponse)
+                when (weatherResponse) {
+                    is DataState.Success -> {
+                        binding.searchProgressbar.visibility = View.INVISIBLE
+                        if (binding.searchView.editText.text.isNullOrEmpty() || binding.searchView.editText.text.length < 3) {
+                            searchResultAdapter.submitList(null)
+                        } else {
+                            searchResultAdapter.submitList(weatherResponse.data)
+                        }
+                    }
+                    is DataState.Error -> {
+                        binding.searchProgressbar.visibility = View.INVISIBLE
+                        Toast.makeText(this@MainActivity, "An error occurred", Toast.LENGTH_SHORT)
+                            .show()
+                    }
                 }
+
             }
         }
     }
