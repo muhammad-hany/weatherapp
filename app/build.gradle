@@ -3,6 +3,12 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
+def configFile = rootProject.file("config.properties")
+def configProperties = new Properties()
+if (configFile.exists()) {
+    configProperties.load(new FileInputStream(configFile))
+}
+
 android {
     namespace 'com.mohammed.weatherapp'
     compileSdk 34
@@ -15,6 +21,9 @@ android {
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "BASE_URL", configProperties["BASE_URL"])
+        buildConfigField("String", "API_KEY", configProperties["API_KEY"])
     }
 
     buildTypes {
@@ -32,6 +41,7 @@ android {
     }
     buildFeatures {
         viewBinding true
+        buildConfig true
     }
 }
 
@@ -43,6 +53,16 @@ dependencies {
     implementation libs.androidx.constraintlayout
     implementation libs.androidx.navigation.fragment.ktx
     implementation libs.androidx.navigation.ui.ktx
+    implementation libs.koin
+    implementation libs.koinCore
+    implementation libs.datastorePreferences
+    implementation libs.datastorePreferencesCore
+    implementation libs.retrofit
+    implementation libs.moshiConverterFactory
+    implementation libs.moshKotlin
+    implementation libs.loggingInterceptor
+    implementation libs.play.services.location
+
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
