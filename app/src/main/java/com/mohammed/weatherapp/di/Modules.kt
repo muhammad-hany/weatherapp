@@ -1,7 +1,6 @@
 package com.mohammed.weatherapp.di
 
 import com.mohammed.weatherapp.BuildConfig
-import com.mohammed.weatherapp.FirstViewModel
 import com.mohammed.weatherapp.data.client.RetrofitClient
 import com.mohammed.weatherapp.data.api.WeatherApi
 import com.mohammed.weatherapp.data.datasource.local.LocalDataSource
@@ -41,10 +40,6 @@ val appModule = module {
 
     single<WeatherRepository> {
         WeatherRepositoryImpl(remoteDataSource = get(), localDataSource = get())
-    }
-
-    viewModel {
-        FirstViewModel(weatherRepository = get())
     }
 
     viewModel {
