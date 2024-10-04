@@ -1,59 +1,106 @@
 package com.mohammed.weatherapp
 
 import android.os.Bundle
-import com.google.android.material.snackbar.Snackbar
+import android.util.Log
+import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.findNavController
+import androidx.appcompat.content.res.AppCompatResources
+import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.navigateUp
-import androidx.navigation.ui.setupActionBarWithNavController
-import android.view.Menu
-import android.view.MenuItem
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.mohammed.weatherapp.databinding.ActivityMainBinding
+import com.mohammed.weatherapp.models.WeatherSearchResponse
+import com.mohammed.weatherapp.view.ActivityViewModel
+import com.mohammed.weatherapp.view.SearchResultAdapter
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
+@OptIn(FlowPreview::class)
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var appBarConfiguration: AppBarConfiguration
     private lateinit var binding: ActivityMainBinding
+    private val viewModel: ActivityViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.searchBar)
+        val searchResultAdapter = SearchResultAdapter(::onLocationSelected)
+        setSearchView(searchResultAdapter)
+        binding.searchResults.adapter = searchResultAdapter
+        binding.searchResults.layoutManager = LinearLayoutManager(this)
+        setupCollectors(searchResultAdapter)
+        handleBackAction()
+    }
 
-        setSupportActionBar(binding.toolbar)
+    private fun handleBackAction() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.searchView.isShowing) {
+                    binding.searchView.hide()
+                    binding.searchProgressbar.visibility = View.INVISIBLE
+                } else {
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
 
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        appBarConfiguration = AppBarConfiguration(navController.graph)
-        setupActionBarWithNavController(navController, appBarConfiguration)
-
-        binding.fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null)
-                .setAnchorView(R.id.fab).show()
+    private fun setupCollectors(searchResultAdapter: SearchResultAdapter) {
+        lifecycleScope.launch {
+            viewModel.weatherSearchState.collectLatest { weatherResponse ->
+                binding.searchProgressbar.visibility = View.INVISIBLE
+                Log.i("Weather", "submiting the list: $weatherResponse")
+                if (binding.searchView.editText.text.isNullOrEmpty() || binding.searchView.editText.text.length < 3) {
+                    searchResultAdapter.submitList(null)
+                } else {
+                    searchResultAdapter.submitList(weatherResponse)
+                }
+            }
         }
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        menuInflater.inflate(R.menu.menu_main, menu)
-        return true
+    private fun onLocationSelected(weatherSearch: WeatherSearchResponse) {
+        binding.searchView.hide()
+        binding.searchBar.setText(weatherSearch.region)
+        if (!weatherSearch.region.isNullOrEmpty()) viewModel.posWeatherQueryState(weatherSearch.region)
+        binding.searchBar.navigationIcon =
+            AppCompatResources.getDrawable(this, R.drawable.ic_close)
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        return when (item.itemId) {
-            R.id.action_settings -> true
-            else -> super.onOptionsItemSelected(item)
+    private fun setSearchView(searchResultAdapter: SearchResultAdapter) {
+        // converting user input to a flow to easily process the search query
+        val searchFlow = callbackFlow {
+            binding.searchView.editText.doAfterTextChanged { searchQuery ->
+                if (searchQuery.isNullOrEmpty() || searchQuery.length < 3) {
+                    searchResultAdapter.submitList(emptyList())
+                    return@doAfterTextChanged
+                }
+                binding.searchProgressbar.visibility = View.VISIBLE
+                trySend(searchQuery.toString())
+            }
+            awaitClose()
+        }.debounce(700) // debounce to wait for the user to finish typing and not making unnecessary api calls
+        viewModel.searchWeather(searchFlow)
+
+        //resetting search query to current location weather
+        binding.searchBar.setNavigationOnClickListener {
+            // sending empty string to display current location weather
+            viewModel.posWeatherQueryState("")
+            //reset the search bar icon
+            binding.searchBar.navigationIcon =
+                AppCompatResources.getDrawable(this, R.drawable.ic_search)
+            //reset search hint
+            binding.searchBar.setText(null)
         }
     }
 
-    override fun onSupportNavigateUp(): Boolean {
-        val navController = findNavController(R.id.nav_host_fragment_content_main)
-        return navController.navigateUp(appBarConfiguration)
-                || super.onSupportNavigateUp()
-    }
 }
