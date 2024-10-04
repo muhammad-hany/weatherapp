@@ -55,8 +55,6 @@ dependencies {
     implementation libs.androidx.navigation.ui.ktx
     implementation libs.koin
     implementation libs.koinCore
-    implementation libs.datastorePreferences
-    implementation libs.datastorePreferencesCore
     implementation libs.retrofit
     implementation libs.moshiConverterFactory
     implementation libs.moshKotlin
